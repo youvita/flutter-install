@@ -31,6 +31,13 @@ case "$USER_SHELL" in
   *) warn "Unknown shell $USER_SHELL; PATH persistence may be skipped" ;;
 esac
 
+# -------- Check for CI mode --------
+CI_MODE=false
+if [ "${1:-}" = "--ci" ]; then
+  CI_MODE=true
+  log "Running in CI mode (non-interactive)"
+fi
+
 # --- 1) Install Homebrew ---
 if ! command -v brew >/dev/null 2>&1; then
   log "Installing Homebrew..."
@@ -119,15 +126,24 @@ sdkmanager --install \
   "ndk-bundle" || true
 
 # --- 9) Accept all licenses via Flutter ---
-log "Accepting all Android licenses"
-yes | flutter doctor --android-licenses
+if [ "$CI_MODE" = true ]; then
+  log "Accepting Android licenses in CI mode (automatic)"
+  yes | flutter doctor --android-licenses >/dev/null
+else
+  log "Accepting Android licenses (interactive)"
+  flutter doctor --android-licenses
+fi
 
 # --- 10) Flutter config ---
 flutter config --android-sdk "$ANDROID_SDK_ROOT"
 
 # --- 11) Final verification ---
-log "Flutter doctor verification"
-flutter doctor
+if [ "$CI_MODE" = false ]; then
+  log "Running flutter doctor verification"
+  flutter doctor
+else
+  log "Skipping flutter doctor in CI mode"
+fi
 
 echo "============================"
 echo " Installation Completed!"
