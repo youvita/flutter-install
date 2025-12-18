@@ -133,12 +133,13 @@ sdkmanager "platform-tools" \
 
 # -------- Accept all licenses reliably --------
 log "Accepting all Android licenses"
-yes | sdkmanager --licenses
+yes | flutter doctor --android-licenses
 
 # --- 8) Flutter config ---
 flutter config --android-sdk "$ANDROID_SDK_ROOT"
 
 log  "Run: flutter doctor"
+flutter doctor
 
 echo "============================"
 echo " Installation Completed!"
