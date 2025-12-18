@@ -112,30 +112,25 @@ add_path_to_rc_top "$ANDROID_SDK_ROOT/platform-tools"
 require_cmd sdkmanager
 
 # --- 8) Install latest SDK packages ---
-log "Resolving latest Android SDK packages"
-LATEST_PLATFORM=$(sdkmanager --list | grep -o 'platforms;android-[0-9]\+' | sort -V | tail -1)
-LATEST_BUILD_TOOLS=$(sdkmanager --list | grep -o 'build-tools;[0-9.]\+' | sort -V | tail -1)
 
-log "Installing: platform-tools, $LATEST_PLATFORM, $LATEST_BUILD_TOOLS"
+
+export ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+
+# 1) Install required SDK packages non-interactively
 sdkmanager --install \
   "platform-tools" \
-  "$LATEST_PLATFORM" \
-  "$LATEST_BUILD_TOOLS" \
+  "platforms;android-36" \
+  "build-tools;36.1.0" \
   "extras;android;m2repository" \
   "extras;google;m2repository" \
-  "ndk-bundle" || true
+  "ndk-bundle" --sdk_root="$ANDROID_SDK_ROOT" || true
 
-# --- 9) Accept all licenses via Flutter ---
-if [ "$CI_MODE" = true ]; then
-  log "Accepting Android licenses in CI mode (automatic)"
-  yes | flutter doctor --android-licenses >/dev/null
-else
-  log "Accepting Android licenses (interactive)"
-  flutter doctor --android-licenses
-fi
+# 2) Accept licenses non-interactively
+yes | sdkmanager --licenses --sdk_root="$ANDROID_SDK_ROOT"
 
-# --- 10) Flutter config ---
-flutter config --android-sdk "$ANDROID_SDK_ROOT"
+# 3) Run Flutter license acceptance (just in case)
+yes | flutter doctor --android-licenses
 
 # --- 11) Final verification ---
 if [ "$CI_MODE" = false ]; then
