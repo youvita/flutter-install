@@ -1,10 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# NOTE:
-# This script intentionally avoids running `flutter doctor`
-# to prevent blocking behavior on macOS.
-
 echo "======================================"
 echo " Auto Flutter + Android Install Script"
 echo "======================================"
@@ -20,7 +16,7 @@ require_cmd() {
 
 add_path_to_rc_top() {
   local p="$1"
-  [ -z "$REQUIRED_SHELL_RC" ] && return 0
+  [ -z "${REQUIRED_SHELL_RC:-}" ] && return 0
   grep -qs "export PATH=.*$p" "$REQUIRED_SHELL_RC" && return 0
   {
     echo "export PATH=\"$p:\$PATH\""
@@ -33,7 +29,7 @@ case "$USER_SHELL" in
   zsh) REQUIRED_SHELL_RC="$HOME/.zshrc" ;;
   bash) REQUIRED_SHELL_RC="$HOME/.bash_profile" ;;
   *) warn "Unknown shell $USER_SHELL; PATH persistence may be skipped" ;;
- esac
+esac
 
 # --- 1) Install Homebrew ---
 if ! command -v brew >/dev/null 2>&1; then
@@ -55,7 +51,7 @@ else
     log "Git already installed."
 fi
 
-# --- 4) Install Flutter SDK to home directory ---
+# --- 4) Install Flutter SDK ---
 FLUTTER_HOME="$HOME/flutter"
 if [ ! -d "$FLUTTER_HOME/bin" ]; then
     log "Installing Flutter SDK..."
@@ -63,46 +59,34 @@ if [ ! -d "$FLUTTER_HOME/bin" ]; then
 else
     log "Flutter already installed at $FLUTTER_HOME"
 fi
-
 FLUTTER_PATH="$FLUTTER_HOME/bin"
-add_path_to_rc_top "$FLUTTER_PATH"
 export PATH="$FLUTTER_PATH:$PATH"
+add_path_to_rc_top "$FLUTTER_PATH"
 
-# --- 5) Install CocoaPods via gem ---
-# Step 1: Install CocoaPods system-wide
-if command -v pod >/dev/null 2>&1; then
-  log "CocoaPods already installed at: $(command -v pod)"
-else
+# --- 5) Install CocoaPods ---
+if ! command -v pod >/dev/null 2>&1; then
   log "Installing CocoaPods..."
   sudo gem install cocoapods --no-document
 fi
-
-# Step 2: Detect gem bin path
 GEM_BIN_PATH=$(sudo ruby -e 'require "rubygems"; puts Gem.bindir' 2>/dev/null || echo "/usr/local/bin")
-add_path_to_rc_top "$GEM_BIN_PATH"
 export PATH="$GEM_BIN_PATH:$PATH"
-command -v pod >/dev/null 2>&1 && echo "pod installed at $(command -v pod)"
+add_path_to_rc_top "$GEM_BIN_PATH"
 
 # --- 6) Install Android Studio ---
-# -------- Config --------
 ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"
 ANDROID_HOME="$ANDROID_SDK_ROOT"
 CMDLINE_TOOLS="$ANDROID_SDK_ROOT/cmdline-tools/latest"
-REQUIRED_SHELL_RC=""
 
-if brew list --cask android-studio >/dev/null 2>&1; then
-  log "Android Studio already installed"
-else
-  if [ -f /usr/local/bin/studio ]; then
-    log "Removing existing Android Studio launcher"
-    sudo rm -f /usr/local/bin/studio
-  fi
-  log "Installing Android Studio"
+if ! brew list --cask android-studio >/dev/null 2>&1; then
+  [ -f /usr/local/bin/studio ] && sudo rm -f /usr/local/bin/studio
+  log "Installing Android Studio..."
   brew install --cask android-studio
+else
+  log "Android Studio already installed"
 fi
 
-# -------- Android SDK + cmdline-tools --------
-log "Configuring Android SDK"
+# --- 7) Install Android SDK cmdline-tools ---
+log "Configuring Android SDK directories"
 mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
 
 if [ ! -d "$CMDLINE_TOOLS" ]; then
@@ -111,37 +95,40 @@ if [ ! -d "$CMDLINE_TOOLS" ]; then
   curl -fsSL -o "$TMP_ZIP" https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip
   unzip -q "$TMP_ZIP" -d "$ANDROID_SDK_ROOT/cmdline-tools"
   mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$CMDLINE_TOOLS"
+  rm "$TMP_ZIP"
 fi
 
-export ANDROID_SDK_ROOT ANDROID_HOME
 export PATH="$CMDLINE_TOOLS/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
-
 add_path_to_rc_top "$CMDLINE_TOOLS/bin"
 add_path_to_rc_top "$ANDROID_SDK_ROOT/platform-tools"
 
 require_cmd sdkmanager
 
-# -------- Install latest platform/build-tools --------
+# --- 8) Install latest SDK packages ---
 log "Resolving latest Android SDK packages"
 LATEST_PLATFORM=$(sdkmanager --list | grep -o 'platforms;android-[0-9]\+' | sort -V | tail -1)
 LATEST_BUILD_TOOLS=$(sdkmanager --list | grep -o 'build-tools;[0-9.]\+' | sort -V | tail -1)
 
 log "Installing: platform-tools, $LATEST_PLATFORM, $LATEST_BUILD_TOOLS"
-sdkmanager "platform-tools" \
-"$LATEST_PLATFORM" \
-"$LATEST_BUILD_TOOLS" || true
+sdkmanager --install \
+  "platform-tools" \
+  "$LATEST_PLATFORM" \
+  "$LATEST_BUILD_TOOLS" \
+  "extras;android;m2repository" \
+  "extras;google;m2repository" \
+  "ndk-bundle" || true
 
-# -------- Accept all licenses reliably --------
+# --- 9) Accept all licenses via Flutter ---
 log "Accepting all Android licenses"
 yes | flutter doctor --android-licenses
 
-# --- 8) Flutter config ---
+# --- 10) Flutter config ---
 flutter config --android-sdk "$ANDROID_SDK_ROOT"
 
-log  "Run: flutter doctor"
+# --- 11) Final verification ---
+log "Flutter doctor verification"
 flutter doctor
 
 echo "============================"
 echo " Installation Completed!"
 echo "============================"
-
