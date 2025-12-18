@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+sudo -v
 
 echo "======================================"
 echo " Auto Flutter + Android Install Script"
