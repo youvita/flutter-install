@@ -33,7 +33,7 @@ case "$USER_SHELL" in
   zsh) REQUIRED_SHELL_RC="$HOME/.zshrc" ;;
   bash) REQUIRED_SHELL_RC="$HOME/.bash_profile" ;;
   *)
-  SHELL_RC=""
+    SHELL_RC=""
     warn "Unknown shell: $USER_SHELL; PATH persistence skipped"
     ;;
 esac
