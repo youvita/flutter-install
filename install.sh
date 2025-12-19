@@ -32,6 +32,7 @@ USER_SHELL="$(basename "${SHELL:-/bin/zsh}")"
 case "$USER_SHELL" in
   zsh) REQUIRED_SHELL_RC="$HOME/.zshrc" ;;
   bash) REQUIRED_SHELL_RC="$HOME/.bash_profile" ;;
+  *)
   SHELL_RC=""
     warn "Unknown shell: $USER_SHELL; PATH persistence skipped"
     ;;
