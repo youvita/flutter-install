@@ -4,5 +4,6 @@ One-line installer for Flutter + Android SDK + Android Studio.
 
 ## Install
 ```bash
-curl -fsSL https://raw.githubusercontent.com/youvita/flutter-install/main/install.sh | bash
+curl -LO https://raw.githubusercontent.com/youvita/flutter-install/main/install.sh
+
 
